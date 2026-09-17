@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,17 +75,18 @@ fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Modifier) {
                 }
 
                 awaitEachGesture {
-                    val down = awaitFirstDown()
+                    val firstEvent = awaitPointerEvent()
+                    val down = firstEvent.changes.firstOrNull { it.pressed } ?: return@awaitEachGesture
                     selectedIndex = indexForX(down.position.x)
                     down.consume()
-                    do {
+                    val pointerId = down.id
+                    while (true) {
                         val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id }
-                        if (change != null && change.pressed) {
-                            selectedIndex = indexForX(change.position.x)
-                            change.consume()
-                        }
-                    } while (event.changes.any { it.pressed })
+                        val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                        if (!change.pressed) break
+                        selectedIndex = indexForX(change.position.x)
+                        change.consume()
+                    }
                 }
             }
     ) {
