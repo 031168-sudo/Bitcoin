@@ -30,12 +30,18 @@ import kotlin.math.ln
 import kotlin.math.max
 
 /**
- * Line chart of BTC/USD close price on a log10 scale (linear would flatten
- * every year before ~2020 given the price range from cents to tens of thousands).
- * Tap or drag on the curve to see the date and price at that point.
+ * Line chart of BTC/USD price. Long ranges (e.g. full history since 2010) read
+ * better on a log scale, since a linear one flattens every year before ~2020
+ * given the price range from cents to tens of thousands; short ranges (e.g.
+ * the last 6 months) use a linear scale instead. Tap or drag on the curve to
+ * see the date and price at that point.
  */
 @Composable
-fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Modifier) {
+fun PriceHistoryChart(
+    points: List<PricePoint>,
+    modifier: Modifier = Modifier,
+    useLogScale: Boolean = true
+) {
     val lineColor = MaterialTheme.colorScheme.primary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -104,16 +110,19 @@ fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Modifier) {
         val maxTime = points.last().timeSec
         val timeSpan = max(1L, maxTime - minTime)
 
-        val logPrices = points.map { ln(max(it.price, 0.0001)) }
-        val minLog = logPrices.min()
-        val maxLog = logPrices.max()
-        val logSpan = max(0.0001, maxLog - minLog)
+        fun toScale(price: Double): Double = if (useLogScale) ln(max(price, 0.0001)) else price
+        fun fromScale(value: Double): Double = if (useLogScale) exp(value) else value
+
+        val scaledValues = points.map { toScale(it.price) }
+        val minV = scaledValues.min()
+        val maxV = scaledValues.max()
+        val valueSpan = (maxV - minV).let { if (it < 1e-9) 1.0 else it }
 
         fun xFor(timeSec: Long): Float =
             leftPad + (chartWidth * (timeSec - minTime).toFloat() / timeSpan)
 
-        fun yFor(logPrice: Double): Float =
-            topPad + chartHeight - (chartHeight * ((logPrice - minLog) / logSpan)).toFloat()
+        fun yFor(value: Double): Float =
+            topPad + chartHeight - (chartHeight * ((value - minV) / valueSpan)).toFloat()
 
         val labelPaint = AndroidPaint().apply {
             color = labelColor.toArgbCompat()
@@ -128,58 +137,44 @@ fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Modifier) {
         val gridLines = 4
         for (i in 0..gridLines) {
             val frac = i.toDouble() / gridLines
-            val logValue = minLog + frac * logSpan
-            val y = yFor(logValue)
+            val value = minV + frac * valueSpan
+            val y = yFor(value)
             drawLine(
                 color = gridColor,
                 start = Offset(leftPad, y),
                 end = Offset(size.width - rightPad, y),
                 strokeWidth = 1f
             )
-            val price = exp(logValue)
             drawContext.canvas.nativeCanvas.drawText(
-                formatPriceShort(price),
+                formatPriceShort(fromScale(value)),
                 leftPad,
                 (y - 4.dp.toPx()).coerceAtLeast(topPad + 10f),
                 labelPaint
             )
         }
 
-        // Year labels and vertical grid lines on the x-axis.
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        calendar.timeInMillis = minTime * 1000
-        val startYear = calendar.get(Calendar.YEAR)
-        calendar.timeInMillis = maxTime * 1000
-        val endYear = calendar.get(Calendar.YEAR)
-        val yearStep = max(1, (endYear - startYear) / 8)
-
-        var year = startYear
-        while (year <= endYear) {
-            calendar.set(year, Calendar.JANUARY, 1, 0, 0, 0)
-            val t = calendar.timeInMillis / 1000
-            if (t in minTime..maxTime) {
-                val x = xFor(t)
-                drawLine(
-                    color = gridColor,
-                    start = Offset(x, topPad),
-                    end = Offset(x, size.height - bottomPad),
-                    strokeWidth = 1f
-                )
-                drawContext.canvas.nativeCanvas.drawText(
-                    year.toString(),
-                    x,
-                    size.height - 6.dp.toPx(),
-                    centeredLabelPaint
-                )
-            }
-            year += yearStep
+        // Vertical grid lines and date labels on the x-axis.
+        for ((t, label) in computeXAxisTicks(minTime, maxTime)) {
+            val x = xFor(t)
+            drawLine(
+                color = gridColor,
+                start = Offset(x, topPad),
+                end = Offset(x, size.height - bottomPad),
+                strokeWidth = 1f
+            )
+            drawContext.canvas.nativeCanvas.drawText(
+                label,
+                x,
+                size.height - 6.dp.toPx(),
+                centeredLabelPaint
+            )
         }
 
         // Price line.
         val path = Path()
         points.forEachIndexed { index, point ->
             val x = xFor(point.timeSec)
-            val y = yFor(ln(max(point.price, 0.0001)))
+            val y = yFor(toScale(point.price))
             if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
         drawPath(path = path, color = lineColor, style = Stroke(width = 2.5.dp.toPx()))
@@ -188,7 +183,7 @@ fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Modifier) {
         val selected = selectedIndex?.let { points.getOrNull(it) }
         if (selected != null) {
             val selX = xFor(selected.timeSec)
-            val selY = yFor(ln(max(selected.price, 0.0001)))
+            val selY = yFor(toScale(selected.price))
 
             drawLine(
                 color = labelColor,
@@ -254,6 +249,51 @@ fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+/**
+ * Year ticks for long ranges, month ticks for short ones (under ~1.5 years)
+ * so the 6-month chart doesn't try to draw year gridlines.
+ */
+private fun computeXAxisTicks(minTime: Long, maxTime: Long): List<Pair<Long, String>> {
+    val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    val ticks = mutableListOf<Pair<Long, String>>()
+    val spanDays = (maxTime - minTime) / 86400
+
+    if (spanDays > 550) {
+        calendar.timeInMillis = minTime * 1000
+        val startYear = calendar.get(Calendar.YEAR)
+        calendar.timeInMillis = maxTime * 1000
+        val endYear = calendar.get(Calendar.YEAR)
+        val yearStep = max(1, (endYear - startYear) / 8)
+
+        var year = startYear
+        while (year <= endYear) {
+            calendar.set(year, Calendar.JANUARY, 1, 0, 0, 0)
+            val t = calendar.timeInMillis / 1000
+            if (t in minTime..maxTime) ticks.add(t to year.toString())
+            year += yearStep
+        }
+    } else {
+        val monthFormat = SimpleDateFormat("MMM", Locale("ru")).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        calendar.timeInMillis = minTime * 1000
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        if (calendar.timeInMillis / 1000 < minTime) calendar.add(Calendar.MONTH, 1)
+
+        while (calendar.timeInMillis / 1000 <= maxTime) {
+            val t = calendar.timeInMillis / 1000
+            val label = monthFormat.format(calendar.time).replaceFirstChar { it.uppercase() }
+            ticks.add(t to label)
+            calendar.add(Calendar.MONTH, 1)
+        }
+    }
+    return ticks
 }
 
 private fun formatPriceShort(price: Double): String = when {

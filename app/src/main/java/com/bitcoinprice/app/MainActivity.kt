@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -98,10 +100,13 @@ private fun SuccessContent(state: BitcoinUiState.Success, onRefresh: () -> Unit)
     }
     val changeColor = if (state.changePercent24h >= 0) Color(0xFF1E8E3E) else Color(0xFFD93025)
     val changeSign = if (state.changePercent24h >= 0) "+" else ""
+    val sixMonthsAgo = (state.history.lastOrNull()?.timeSec ?: 0L) - 183L * 86400
+    val recentHistory = state.history.filter { it.timeSec >= sixMonthsAgo }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         Text(
@@ -120,6 +125,23 @@ private fun SuccessContent(state: BitcoinUiState.Success, onRefresh: () -> Unit)
             color = changeColor,
             style = MaterialTheme.typography.titleMedium
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Последние 6 месяцев",
+            style = MaterialTheme.typography.labelLarge
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (recentHistory.size >= 2) {
+            PriceHistoryChart(
+                points = recentHistory,
+                modifier = Modifier.fillMaxWidth(),
+                useLogScale = false
+            )
+        } else {
+            Text("Недостаточно данных", style = MaterialTheme.typography.bodyMedium)
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
