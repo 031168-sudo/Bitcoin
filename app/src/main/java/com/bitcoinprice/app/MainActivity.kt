@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -31,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,22 +45,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Some OEM skins don't report a non-zero WindowInsets.statusBars top
+        // inset to Compose even with enableEdgeToEdge(), so fall back to the
+        // classic system dimension resource, which is always populated.
+        val statusBarHeightPx = resources.getIdentifier("status_bar_height", "dimen", "android")
+            .let { if (it > 0) resources.getDimensionPixelSize(it) else 0 }
         setContent {
             MaterialTheme {
-                BitcoinPriceScreen(viewModel)
+                BitcoinPriceScreen(viewModel, statusBarHeightPx)
             }
         }
     }
 }
 
 @Composable
-fun BitcoinPriceScreen(viewModel: BitcoinViewModel) {
+fun BitcoinPriceScreen(viewModel: BitcoinViewModel, statusBarHeightPx: Int) {
     val state by viewModel.state.collectAsState()
+    val statusBarHeightDp = with(LocalDensity.current) { statusBarHeightPx.toDp() }
 
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
+            .padding(top = statusBarHeightDp)
             .navigationBarsPadding()
     ) {
         when (val s = state) {

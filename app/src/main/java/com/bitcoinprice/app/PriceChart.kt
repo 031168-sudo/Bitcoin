@@ -304,12 +304,13 @@ private fun computeXAxisTicks(minTime: Long, maxTime: Long): List<Pair<Long, Str
         calendar.timeInMillis = maxTime * 1000
         val endYear = calendar.get(Calendar.YEAR)
 
+        // Every other year, so labels don't run into each other on a ~16-year span.
         var year = startYear
         while (year <= endYear) {
             calendar.set(year, Calendar.JANUARY, 1, 0, 0, 0)
             val t = calendar.timeInMillis / 1000
             if (t in minTime..maxTime) ticks.add(t to year.toString())
-            year += 1
+            year += 2
         }
     } else {
         val monthFormat = SimpleDateFormat("MMM", Locale("ru")).apply {
