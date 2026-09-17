@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stylized block "B" with two vertical ticks, evoking the bitcoin (BTC) sign. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M39,19 L59,19 L59,29 L39,29 Z
+            M39,29 L49,29 L49,39 L39,39 Z
+            M59,29 L69,29 L69,39 L59,39 Z
+            M39,39 L49,39 L49,49 L39,49 Z
+            M59,39 L69,39 L69,49 L59,49 Z
+            M39,49 L59,49 L59,59 L39,59 Z
+            M39,59 L49,59 L49,69 L39,69 Z
+            M59,59 L69,59 L69,69 L59,69 Z
+            M39,69 L49,69 L49,79 L39,79 Z
+            M59,69 L69,69 L69,79 L59,79 Z
+            M39,79 L59,79 L59,89 L39,89 Z
+            M47,8 L51,8 L51,19 L47,19 Z
+            M47,89 L51,89 L51,100 L47,100 Z
+            M57,8 L61,8 L61,19 L57,19 Z
+            M57,89 L61,89 L61,100 L57,100 Z
+        " />
+</vector>
