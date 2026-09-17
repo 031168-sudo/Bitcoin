@@ -13,16 +13,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,22 +49,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BitcoinPriceScreen(viewModel: BitcoinViewModel) {
     val state by viewModel.state.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Курс Bitcoin (BTC/USD)") })
-        }
-    ) { padding ->
-        Surface(modifier = Modifier.fillMaxSize().padding(padding)) {
-            when (val s = state) {
-                is BitcoinUiState.Loading -> LoadingContent()
-                is BitcoinUiState.Error -> ErrorContent(s.message) { viewModel.refresh() }
-                is BitcoinUiState.Success -> SuccessContent(s) { viewModel.refresh() }
-            }
+    Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+        when (val s = state) {
+            is BitcoinUiState.Loading -> LoadingContent()
+            is BitcoinUiState.Error -> ErrorContent(s.message) { viewModel.refresh() }
+            is BitcoinUiState.Success -> SuccessContent(s) { viewModel.refresh() }
         }
     }
 }
@@ -137,7 +128,8 @@ private fun SuccessContent(state: BitcoinUiState.Success, onRefresh: () -> Unit)
             PriceHistoryChart(
                 points = recentHistory,
                 modifier = Modifier.fillMaxWidth(),
-                useLogScale = false
+                useLogScale = false,
+                heightDp = 130.dp
             )
         } else {
             Text("Недостаточно данных", style = MaterialTheme.typography.bodyMedium)

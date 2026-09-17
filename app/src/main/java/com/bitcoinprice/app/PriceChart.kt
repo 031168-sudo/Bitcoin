@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
@@ -40,7 +41,8 @@ import kotlin.math.max
 fun PriceHistoryChart(
     points: List<PricePoint>,
     modifier: Modifier = Modifier,
-    useLogScale: Boolean = true
+    useLogScale: Boolean = true,
+    heightDp: Dp = 260.dp
 ) {
     val lineColor = MaterialTheme.colorScheme.primary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
@@ -53,7 +55,7 @@ fun PriceHistoryChart(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(260.dp)
+            .height(heightDp)
             .pointerInput(points) {
                 if (points.size < 2) return@pointerInput
                 val leftPad = 8.dp.toPx()
@@ -265,14 +267,13 @@ private fun computeXAxisTicks(minTime: Long, maxTime: Long): List<Pair<Long, Str
         val startYear = calendar.get(Calendar.YEAR)
         calendar.timeInMillis = maxTime * 1000
         val endYear = calendar.get(Calendar.YEAR)
-        val yearStep = max(1, (endYear - startYear) / 8)
 
         var year = startYear
         while (year <= endYear) {
             calendar.set(year, Calendar.JANUARY, 1, 0, 0, 0)
             val t = calendar.timeInMillis / 1000
             if (t in minTime..maxTime) ticks.add(t to year.toString())
-            year += yearStep
+            year += 1
         }
     } else {
         val monthFormat = SimpleDateFormat("MMM", Locale("ru")).apply {
