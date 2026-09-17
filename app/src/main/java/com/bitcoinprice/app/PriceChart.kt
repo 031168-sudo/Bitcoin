@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,13 +54,20 @@ fun PriceHistoryChart(
 
     var selectedIndex by remember(points) { mutableStateOf<Int?>(null) }
 
+    val density = LocalDensity.current
+    // Reserve just enough room on the left for the widest price label, so it
+    // never overlaps the plotted line (measured once, shared by touch + draw).
+    val leftPadPx = remember(points, useLogScale, density) {
+        computeLeftAxisPadding(points, useLogScale, density)
+    }
+
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(heightDp)
-            .pointerInput(points) {
+            .pointerInput(points, leftPadPx) {
                 if (points.size < 2) return@pointerInput
-                val leftPad = 8.dp.toPx()
+                val leftPad = leftPadPx
                 val rightPad = 8.dp.toPx()
                 val chartWidth = size.width - leftPad - rightPad
                 val minTime = points.first().timeSec
@@ -100,7 +109,8 @@ fun PriceHistoryChart(
     ) {
         if (points.size < 2) return@Canvas
 
-        val leftPad = 8.dp.toPx()
+        val leftPad = leftPadPx
+        val labelStartX = 2.dp.toPx()
         val bottomPad = 24.dp.toPx()
         val topPad = 8.dp.toPx()
         val rightPad = 8.dp.toPx()
@@ -131,11 +141,13 @@ fun PriceHistoryChart(
             textSize = 10.sp.toPx()
             isAntiAlias = true
         }
-        val centeredLabelPaint = AndroidPaint(labelPaint).apply {
+        val tickLabelPaint = AndroidPaint(labelPaint).apply {
+            textSize = 8.sp.toPx()
             textAlign = AndroidPaint.Align.CENTER
         }
 
-        // Horizontal grid lines with price labels.
+        // Horizontal grid lines with price labels (labels sit left of the
+        // plot area, in the reserved leftPad margin, never over the line).
         val gridLines = 4
         for (i in 0..gridLines) {
             val frac = i.toDouble() / gridLines
@@ -149,7 +161,7 @@ fun PriceHistoryChart(
             )
             drawContext.canvas.nativeCanvas.drawText(
                 formatPriceShort(fromScale(value)),
-                leftPad,
+                labelStartX,
                 (y - 4.dp.toPx()).coerceAtLeast(topPad + 10f),
                 labelPaint
             )
@@ -168,7 +180,7 @@ fun PriceHistoryChart(
                 label,
                 x,
                 size.height - 6.dp.toPx(),
-                centeredLabelPaint
+                tickLabelPaint
             )
         }
 
@@ -251,6 +263,30 @@ fun PriceHistoryChart(
             )
         }
     }
+}
+
+/** Widest y-axis price label plus a small gap, so the plot never starts under the text. */
+private fun computeLeftAxisPadding(points: List<PricePoint>, useLogScale: Boolean, density: Density): Float {
+    val minGap = with(density) { 8.dp.toPx() }
+    if (points.size < 2) return minGap
+
+    fun toScale(price: Double) = if (useLogScale) ln(max(price, 0.0001)) else price
+    fun fromScale(value: Double) = if (useLogScale) exp(value) else value
+
+    val scaledValues = points.map { toScale(it.price) }
+    val minV = scaledValues.min()
+    val maxV = scaledValues.max()
+    val valueSpan = (maxV - minV).let { if (it < 1e-9) 1.0 else it }
+
+    val paint = AndroidPaint().apply { textSize = with(density) { 10.sp.toPx() } }
+    val gridLines = 4
+    var maxLabelWidth = 0f
+    for (i in 0..gridLines) {
+        val value = minV + (i.toDouble() / gridLines) * valueSpan
+        val label = formatPriceShort(fromScale(value))
+        maxLabelWidth = max(maxLabelWidth, paint.measureText(label))
+    }
+    return maxLabelWidth + with(density) { 8.dp.toPx() }
 }
 
 /**

@@ -3,6 +3,7 @@ package com.bitcoinprice.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             MaterialTheme {
                 BitcoinPriceScreen(viewModel)
@@ -86,8 +89,8 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
 
 @Composable
 private fun SuccessContent(state: BitcoinUiState.Success, onRefresh: () -> Unit) {
-    val todayLabel = remember(state) {
-        SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())
+    val timestampLabel = remember(state.fetchedAtMillis) {
+        SimpleDateFormat("d MMMM yyyy, HH:mm", Locale("ru")).format(Date(state.fetchedAtMillis))
     }
     val changeColor = if (state.changePercent24h >= 0) Color(0xFF1E8E3E) else Color(0xFFD93025)
     val changeSign = if (state.changePercent24h >= 0) "+" else ""
@@ -100,10 +103,18 @@ private fun SuccessContent(state: BitcoinUiState.Success, onRefresh: () -> Unit)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Text(
-            text = "Курс на $todayLabel",
-            style = MaterialTheme.typography.bodyLarge
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Курс биткоина на $timestampLabel",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onRefresh) { Text("Обновить") }
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = formatUsd(state.priceUsd),
@@ -147,11 +158,7 @@ private fun SuccessContent(state: BitcoinUiState.Success, onRefresh: () -> Unit)
         } else {
             Text("Нет исторических данных", style = MaterialTheme.typography.bodyMedium)
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = onRefresh) { Text("Обновить") }
-        }
     }
 }
 

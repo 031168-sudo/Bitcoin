@@ -15,7 +15,8 @@ sealed interface BitcoinUiState {
     data class Success(
         val priceUsd: Double,
         val changePercent24h: Double,
-        val history: List<PricePoint>
+        val history: List<PricePoint>,
+        val fetchedAtMillis: Long
     ) : BitcoinUiState
 }
 
@@ -43,7 +44,8 @@ class BitcoinViewModel : ViewModel() {
                 _state.value = BitcoinUiState.Success(
                     priceUsd = currentPrice,
                     changePercent24h = changePercent24h,
-                    history = history
+                    history = history,
+                    fetchedAtMillis = System.currentTimeMillis()
                 )
             } catch (e: Exception) {
                 _state.value = BitcoinUiState.Error(e.message ?: "Не удалось загрузить данные")
